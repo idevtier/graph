@@ -37,12 +37,14 @@ where
     let (nodes, edges) = input.split_once('#').unwrap();
 
     for node_str in nodes[..nodes.len() - 1].split('\n') {
-        let node = node_str.split(' ').last().unwrap();
-        let node = node.parse();
-        g.add_node(node.ok().unwrap());
+        let (_id, node) = node_str.split_once(' ').unwrap();
+        match node.parse() {
+            Ok(node) => g.add_node(node),
+            _ => panic!("Can't parse node"),
+        };
     }
 
-    for edge_str in edges[1..edges.len() - 1].split('\n') {
+    for edge_str in edges.lines().filter(|s| !s.is_empty()) {
         let (from, to_weight) = edge_str.split_once(' ').unwrap();
         let (to, weight) = to_weight.split_once(' ').unwrap();
 
@@ -132,6 +134,24 @@ mod tests {
             let actual = actual.get_edge_by_index(from, to);
             assert!(actual.is_some());
             assert_eq!(actual.unwrap(), &weight);
+        }
+    }
+
+    #[test]
+    fn ser_wiki_example() {
+        let tgf = "1 First node
+2 Second node
+#
+1 2 Edge between the two
+";
+
+        let g: MatrixGraph<String, String> = de_tgf(tgf).unwrap();
+        let edges = vec![("First node", "Second node", "Edge between the two")];
+
+        for (from, to, weight) in edges {
+            let from = g.get_index_of(&from.to_string()).unwrap();
+            let to = g.get_index_of(&to.to_string()).unwrap();
+            assert_eq!(g.get_edge_by_index(from, to).unwrap(), weight);
         }
     }
 }
