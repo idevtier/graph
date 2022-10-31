@@ -553,4 +553,18 @@ mod tests {
         let a_idx = g.add_node(1);
         assert!(!g.contains_edge(a_idx, 5));
     }
+
+    #[test]
+    fn test_get_edge_by_index_return_none_if_not_foun() {
+        let g = create_graph();
+        let weight = g.get_edge_by_index(0, 2);
+        assert!(weight.is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "Node with index 6 not found")]
+    fn test_panics_on_getting_neighbors_for_not_existed_node() {
+        let g = create_graph();
+        g.neighbors(6);
+    }
 }
