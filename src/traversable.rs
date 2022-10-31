@@ -4,6 +4,19 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
+/// Boundary for getting iterator over breadth first traverse of graph
+pub trait BfsIterable<'a, N: 'a, I, T, G>
+where
+    N: MatrixGraphNode,
+    I: Iterator<Item = (usize, &'a N)>,
+    G: Neighbors<'a, N, I> + Gettable<N, T>,
+{
+    fn get_graph(&'a self) -> &'a G;
+    fn bfs_iter(&'a self, from: usize) -> BreadthFirstTraverseIterator<'a, N, G, I, T> {
+        BreadthFirstTraverseIterator::new(self.get_graph(), from)
+    }
+}
+
 /// Iterates over breadth first traverse of graph
 /// represented by adjacency list
 ///
@@ -72,20 +85,6 @@ where
         })
     }
 }
-
-/// Boundary for getting iterator over breadth first traverse of graph
-pub trait BfsIterable<'a, N: 'a, I, T, G>
-where
-    N: MatrixGraphNode,
-    I: Iterator<Item = (usize, &'a N)>,
-    G: Neighbors<'a, N, I> + Gettable<N, T>,
-{
-    fn get_graph(&'a self) -> &'a G;
-    fn bfs_iter(&'a self, from: usize) -> BreadthFirstTraverseIterator<'a, N, G, I, T> {
-        BreadthFirstTraverseIterator::new(self.get_graph(), from)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

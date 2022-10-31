@@ -7,7 +7,7 @@ use std::hash::Hash;
 pub trait MatrixGraphNode: Eq + Hash {}
 impl<N> MatrixGraphNode for N where N: Eq + Hash {}
 
-/// Structure for traversing graph
+/// Structure for returning while traversing graph
 #[derive(Debug, PartialEq, Eq)]
 pub struct GraphEntry<'a, N>
 where
@@ -17,7 +17,7 @@ where
     pub edges: Vec<&'a N>,
 }
 
-/// Boundary for getting neigbors by graph node index
+/// Boundary for getting neighbors by graph node index
 pub trait Neighbors<'a, N: 'a, I>
 where
     I: Iterator<Item = (usize, &'a N)>,
@@ -54,7 +54,7 @@ where
 }
 
 /// Boundary for getting nodes and edges by index
-/// Can be changes to defalt Index after stable GAT
+/// Can be changed to defalt Index after stable GAT
 pub trait Gettable<N, T> {
     fn get_node_by_index(&self, node_idx: usize) -> Option<&N>;
     fn get_edge_by_index(&self, from: usize, to: usize) -> Option<&T>;
