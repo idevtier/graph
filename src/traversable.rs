@@ -73,6 +73,7 @@ where
     }
 }
 
+/// Boundary for getting iterator over breadth first traverse of graph
 pub trait BfsIterable<'a, N: 'a, I, T, G>
 where
     N: MatrixGraphNode,
