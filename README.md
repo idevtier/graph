@@ -30,7 +30,7 @@ let mut g = MatrixGraph::<u32, String>::default()
 let first = g.add_node(34);
 let second = g.add_node(52);
 g.add_edge(first, second, "First");
-g.add_edge(first, second, "Second");
+g.add_edge(second, first, "Second");
 ```
 
 Removing nodes and edges:
