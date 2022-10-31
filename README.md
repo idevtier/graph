@@ -53,4 +53,4 @@ let tgf = load_tgf_as_str();
 let g = serialization::de_tgf::<u32, String>(tgf).expect("Something bad");
 ```
 
-Full documentation available via `cargo doc`
+Full documentation available [here](https://usrsem.github.io/graph/graph/index.html)
