@@ -35,7 +35,7 @@ g.add_edge(second, first, "Second");
 
 Removing nodes and edges:
 ```rust
-g.remove_node(34);
+g.remove_node(2);
 g.remove_edge(0, 1);
 ```
 
@@ -43,7 +43,7 @@ Iterating over breadth first traverse of graph:
 ```rust
 let start_node_idx = 0;
 for entry in g.bfs_iter(start_node_idx) {
-   printlnl("Node: {}, edges: {:?}", entry.node, entry.edges);
+   println!("Node: {}, edges: {:?}", entry.node, entry.edges);
 }
 ```
 
