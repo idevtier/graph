@@ -16,9 +16,9 @@ let mut g = MatrixGraph::<u32, String>::default()
 Or create from `IntoIterator`:
 ```rust
 let edges = [
-	(1, 2, 3),
-	(3, 4, 7),
-	(1, 3, 4),
+   (1, 2, 3),
+   (3, 4, 7),
+   (1, 3, 4),
 ];
 
 let g = MatrxiGraph::<u32, u32>::from_edges(edges.into_iter());
@@ -43,7 +43,7 @@ Iterating over breadth first traverse of graph:
 ```rust
 let start_node_idx = 0;
 for entry in g.bfs_iter(start_node_idx) {
-	printlnl("Node: {}, edges: {:?}", entry.node, entry.edges);
+   printlnl("Node: {}, edges: {:?}", entry.node, entry.edges);
 }
 ```
 
