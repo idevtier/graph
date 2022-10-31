@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["MatrixGraph","Graph representation with adjacency matrix"],["MatrixGraphNeighborsIterator",""],["NodeIterator",""]]};

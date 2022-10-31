@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["de_tgf",""],["ser_tgf",""]]};
