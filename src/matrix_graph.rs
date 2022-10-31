@@ -31,7 +31,7 @@ where
 
 impl<N, T> MatrixGraph<N, T>
 where
-    N: Copy + MatrixGraphNode,
+    N: MatrixGraphNode,
 {
     /// Create MatrixGraph from iterator of tuples
     /// where each element representes edge between
