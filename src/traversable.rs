@@ -1,5 +1,5 @@
 use crate::types::MatrixGraphNode;
-use crate::types::{Gettable, GraphEntry, Neighbors};
+use crate::types::{GetNodeByIndex, GraphEntry, Neighbors};
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
@@ -9,10 +9,10 @@ pub trait BfsIterable<'a, N: 'a, I, T, G>
 where
     N: MatrixGraphNode,
     I: Iterator<Item = (usize, &'a N)>,
-    G: Neighbors<'a, N, I> + Gettable<N, T>,
+    G: Neighbors<'a, N, I> + GetNodeByIndex<N>,
 {
     fn get_graph(&'a self) -> &'a G;
-    fn bfs_iter(&'a self, from: usize) -> BreadthFirstTraverseIterator<'a, N, G, I, T> {
+    fn bfs_iter(&'a self, from: usize) -> BreadthFirstTraverseIterator<'a, N, G, I> {
         BreadthFirstTraverseIterator::new(self.get_graph(), from)
     }
 }
@@ -22,24 +22,23 @@ where
 ///
 /// Takes **O(n)** space and computes in **O(n + e)**
 /// where n = node count, e = edge count
-pub struct BreadthFirstTraverseIterator<'a, N: 'a, G, I, T>
+pub struct BreadthFirstTraverseIterator<'a, N: 'a, G, I>
 where
     I: Iterator<Item = (usize, &'a N)>,
-    G: Neighbors<'a, N, I> + Gettable<N, T>,
+    G: Neighbors<'a, N, I> + GetNodeByIndex<N>,
 {
     graph: &'a G,
     visited: HashSet<usize>,
     queue: VecDeque<usize>,
     phantom1: PhantomData<N>,
     phantom2: PhantomData<I>,
-    phantom3: PhantomData<T>,
 }
 
-impl<'a, N, G, I, T> BreadthFirstTraverseIterator<'a, N, G, I, T>
+impl<'a, N, G, I> BreadthFirstTraverseIterator<'a, N, G, I>
 where
     N: MatrixGraphNode,
     I: Iterator<Item = (usize, &'a N)>,
-    G: Neighbors<'a, N, I> + Gettable<N, T>,
+    G: Neighbors<'a, N, I> + GetNodeByIndex<N>,
 {
     pub fn new(graph: &'a G, from: usize) -> Self {
         Self {
@@ -48,16 +47,15 @@ where
             queue: VecDeque::from([from]),
             phantom1: PhantomData,
             phantom2: PhantomData,
-            phantom3: PhantomData,
         }
     }
 }
 
-impl<'a, N, G, I, T> Iterator for BreadthFirstTraverseIterator<'a, N, G, I, T>
+impl<'a, N, G, I> Iterator for BreadthFirstTraverseIterator<'a, N, G, I>
 where
     N: MatrixGraphNode,
     I: Iterator<Item = (usize, &'a N)>,
-    G: Neighbors<'a, N, I> + Gettable<N, T>,
+    G: Neighbors<'a, N, I> + GetNodeByIndex<N>,
 {
     type Item = GraphEntry<'a, N>;
 
