@@ -1,4 +1,4 @@
-use crate::matrix_graph::NodeStorage;
+use crate::node_storage::NodeStorage;
 use crate::serialization;
 use std::fmt;
 use std::hash::Hash;
