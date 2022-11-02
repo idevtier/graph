@@ -1,5 +1,5 @@
+use crate::matrix_graph::NodeStorage;
 use crate::serialization;
-use indexmap::IndexSet;
 use std::fmt;
 use std::hash::Hash;
 
@@ -74,7 +74,7 @@ pub struct AdjacencyMatrix<'a, N, T>
 where
     N: MatrixGraphNode,
 {
-    pub nodes: &'a IndexSet<N>,
+    pub nodes: &'a NodeStorage<N>,
     pub edges: &'a Vec<Vec<Option<T>>>,
 }
 

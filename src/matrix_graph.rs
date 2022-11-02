@@ -1,8 +1,147 @@
 use crate::traversable::BfsIterable;
 use crate::types::{Adjacency, AdjacencyMatrix};
 use crate::types::{Gettable, IteratorHandle, MatrixGraphNode, Neighbors};
-use indexmap::IndexSet;
-use std::{cmp, fmt, mem, vec};
+use std::collections::hash_map::DefaultHasher;
+use std::collections::{HashMap, VecDeque};
+use std::{cmp, fmt, hash::Hasher, mem, vec};
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct NodeStorage<N>
+where
+    N: MatrixGraphNode,
+{
+    nodes: Vec<Option<N>>,
+    hashes: HashMap<u64, ()>,
+    removed: VecDeque<usize>,
+}
+
+impl<N> Default for NodeStorage<N>
+where
+    N: MatrixGraphNode,
+{
+    fn default() -> Self {
+        Self {
+            nodes: Vec::new(),
+            removed: VecDeque::new(),
+            hashes: HashMap::new(),
+        }
+    }
+}
+
+impl<N> NodeStorage<N>
+where
+    N: MatrixGraphNode,
+{
+    pub fn add(&mut self, node: N) -> usize {
+        let hash = Self::calculate_hash(&node);
+        if self.hashes.get(&hash).is_some() {
+            panic!("Nodes should be unique.");
+        }
+
+        self.hashes.insert(hash, ());
+
+        match self.removed.pop_back() {
+            Some(idx) => {
+                let _ = mem::replace(&mut self.nodes[idx], Some(node));
+                idx
+            }
+            None => {
+                self.nodes.push(Some(node));
+                self.nodes.len() - 1
+            }
+        }
+    }
+
+    pub fn remove(&mut self, idx: usize) -> Option<N> {
+        let node = mem::replace(&mut self.nodes[idx], None);
+        if let Some(node) = node.as_ref() {
+            let hash = Self::calculate_hash(node);
+            self.hashes.remove(&hash);
+        }
+        self.removed.push_back(idx);
+        node
+    }
+
+    pub fn len(&self) -> usize {
+        self.nodes.len() - self.removed.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn get(&self, idx: usize) -> &N {
+        if idx > self.nodes.len() {
+            panic!("Out of bounds");
+        }
+
+        let node = self.nodes[idx].as_ref();
+
+        match node {
+            Some(node) => node,
+            None => panic!("Trying to get removed node"),
+        }
+    }
+
+    pub fn get_checked(&self, idx: usize) -> Option<&N> {
+        if idx > self.nodes.len() {
+            return None;
+        }
+
+        self.nodes[idx].as_ref()
+    }
+
+    pub fn contains(&self, node: &N) -> Option<usize> {
+        self.nodes
+            .iter()
+            .enumerate()
+            .filter(|(_i, n)| match n {
+                Some(n) => n == node,
+                None => false,
+            })
+            .map(|(i, _n)| i)
+            .next()
+    }
+
+    pub fn iter(&'_ self) -> NodeStorageIterator<'_, N> {
+        NodeStorageIterator::new(&self.nodes)
+    }
+
+    fn calculate_hash(node: &N) -> u64 {
+        let mut s = DefaultHasher::new();
+        node.hash(&mut s);
+        s.finish()
+    }
+}
+
+pub struct NodeStorageIterator<'a, N> {
+    nodes: &'a Vec<Option<N>>,
+    idx: usize,
+}
+
+impl<'a, N> NodeStorageIterator<'a, N> {
+    pub fn new(nodes: &'a Vec<Option<N>>) -> Self {
+        Self { nodes, idx: 0 }
+    }
+}
+
+impl<'a, N> Iterator for NodeStorageIterator<'a, N> {
+    type Item = &'a N;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.idx >= self.nodes.len() {
+                return None;
+            }
+
+            self.idx += 1;
+
+            if let Some(node) = &self.nodes[self.idx - 1] {
+                return Some(node);
+            }
+        }
+    }
+}
 
 /// Graph representation with adjacency matrix
 ///
@@ -11,7 +150,7 @@ pub struct MatrixGraph<N, T>
 where
     N: MatrixGraphNode,
 {
-    nodes: IndexSet<N>,
+    nodes: NodeStorage<N>,
     adjacency: Vec<Vec<Option<T>>>,
     edge_count: usize,
 }
@@ -22,7 +161,7 @@ where
 {
     fn default() -> Self {
         Self {
-            nodes: IndexSet::new(),
+            nodes: NodeStorage::default(),
             adjacency: vec![vec![None]],
             edge_count: 0,
         }
@@ -70,11 +209,7 @@ where
     ///
     /// **Panics** if node already exists
     pub fn add_node(&mut self, node: N) -> usize {
-        if self.nodes.contains(&node) {
-            panic!("Nodes should be unique.")
-        }
-        self.nodes.insert(node);
-        self.nodes.len() - 1
+        self.nodes.add(node)
     }
 
     /// Removes node and all edges for it
@@ -83,19 +218,23 @@ where
     ///
     /// Computes in **O(e)** (average) where e = node's edges count
     pub fn remove_node(&mut self, node_index: usize) -> Option<N> {
-        for i in 0..self.nodes.len() {
-            let positions = [(i, node_index), (node_index, i)];
+        if node_index >= self.nodes.len() || node_index >= self.adjacency.len() {
+            return None;
+        }
 
-            if cmp::max(i, node_index) >= self.adjacency.len() {
+        for i in 0..self.nodes.len() {
+            if i >= self.adjacency.len() {
                 break;
             }
+
+            let positions = [(i, node_index), (node_index, i)];
 
             positions
                 .iter()
                 .for_each(|(from, to)| self.adjacency[*from][*to] = None);
         }
 
-        self.nodes.shift_remove_index(node_index)
+        self.nodes.remove(node_index)
     }
 
     /// Adds edge between two nodes
@@ -105,11 +244,11 @@ where
     ///
     /// **Panics** if some of nodes not exists or edge already exists
     pub fn add_edge(&mut self, from: usize, to: usize, weight: T) {
-        let min_idx = cmp::min(from, to);
-        if min_idx >= self.nodes.len() {
+        let max_idx = cmp::max(from, to);
+        if max_idx >= self.nodes.len() {
             panic!(
                 "Can't add edge for not existing node with index {}",
-                min_idx
+                max_idx
             );
         }
 
@@ -161,10 +300,10 @@ where
 
     /// Checks if node exists in graph
     ///
-    /// Computes in **O(1)** (average)
+    /// Computes in **O(n)**
     #[inline]
     pub fn contains_node(&self, node: &N) -> bool {
-        self.nodes.contains(node)
+        self.nodes.contains(node).is_some()
     }
 
     /// Checks if edge between two nodes exists
@@ -180,10 +319,10 @@ where
 
     /// Returns index of node or None if not found
     ///
-    /// Computes in **O(1)** (average)
+    /// Computes in **O(n)**
     #[inline]
     pub fn get_index_of(&self, node: &N) -> Option<usize> {
-        self.nodes.get_index_of(node)
+        self.nodes.contains(node)
     }
 
     fn update_edge(&mut self, from: usize, to: usize, weight: T) -> Option<T> {
@@ -200,15 +339,17 @@ where
     fn extend_capacity_if_needed(&mut self, from: usize, to: usize) {
         let p = cmp::max(from, to);
 
-        if p >= self.adjacency.len() {
-            let new_capacity = (p + 1).next_power_of_two().pow(2);
-            let old_adjacency_len = self.adjacency.len();
-            self.adjacency
-                .extend((0..old_adjacency_len).map(|_| (0..new_capacity).map(|_| None).collect()));
+        if p < self.adjacency.len() {
+            return;
+        }
 
-            for i in 0..old_adjacency_len {
-                self.adjacency[i].extend((0..old_adjacency_len).map(|_| None));
-            }
+        let new_capacity = cmp::max(4, p + 1).next_power_of_two().pow(2);
+        let diff = new_capacity - self.adjacency.len();
+        self.adjacency
+            .extend((0..diff).map(|_| (0..new_capacity).map(|_| None).collect()));
+
+        for i in 0..diff {
+            self.adjacency[i].extend((0..diff).map(|_| None));
         }
     }
 }
@@ -221,7 +362,7 @@ where
 {
     #[inline]
     fn get_node_by_index(&self, node_idx: usize) -> Option<&N> {
-        self.nodes.get_index(node_idx)
+        self.nodes.get_checked(node_idx)
     }
 
     #[inline]
@@ -235,27 +376,40 @@ where
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-pub struct NodeIterator<'a, N> {
-    nodes: &'a IndexSet<N>,
+pub struct NodeIterator<'a, N>
+where
+    N: MatrixGraphNode,
+{
+    nodes: &'a NodeStorage<N>,
     index: usize,
 }
 
-impl<'a, N> NodeIterator<'a, N> {
-    pub fn new(nodes: &'a IndexSet<N>) -> Self {
+impl<'a, N> NodeIterator<'a, N>
+where
+    N: MatrixGraphNode,
+{
+    pub fn new(nodes: &'a NodeStorage<N>) -> Self {
         Self { nodes, index: 0 }
     }
 }
 
-impl<'a, N> Iterator for NodeIterator<'a, N> {
+impl<'a, N> Iterator for NodeIterator<'a, N>
+where
+    N: MatrixGraphNode,
+{
     type Item = &'a N;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.nodes.len() {
-            return None;
+        loop {
+            if self.index >= self.nodes.len() {
+                return None;
+            }
+            self.index += 1;
+            let node = self.nodes.get_checked(self.index - 1);
+            if node.is_some() {
+                return node;
+            }
         }
-
-        self.index += 1;
-        Some(&self.nodes[self.index - 1])
     }
 }
 
@@ -266,7 +420,7 @@ where
     N: MatrixGraphNode,
 {
     column: usize,
-    nodes: &'a IndexSet<N>,
+    nodes: &'a NodeStorage<N>,
     adjacency: &'a Vec<Option<T>>,
 }
 
@@ -285,7 +439,7 @@ where
             let node_exists = &self.adjacency[self.column];
             self.column += 1;
             if node_exists.is_some() {
-                return Some((self.column - 1, self.nodes.get_index(self.column - 1)?));
+                return Some((self.column - 1, self.nodes.get_checked(self.column - 1)?));
             }
         }
     }
@@ -404,8 +558,6 @@ mod tests {
             let to_idx = g.get_index_of(&to).unwrap();
             assert_eq!(g.get_edge_by_index(from_idx, to_idx).unwrap(), &weight);
         }
-
-        println!("Graph:\n{}", g);
     }
 
     #[test]
@@ -442,6 +594,22 @@ mod tests {
     }
 
     #[test]
+    fn test_saves_correct_edges_after_node_remove() {
+        let mut g = MatrixGraph::<u32, u32>::default();
+        let a_idx = g.add_node(1);
+        let b_idx = g.add_node(2);
+        let c_idx = g.add_node(3);
+
+        g.add_edge(b_idx, c_idx, 1);
+
+        g.remove_node(a_idx);
+
+        let weight = g.get_edge_by_index(b_idx, c_idx);
+
+        assert!(weight.is_some());
+    }
+
+    #[test]
     fn test_adds_edge() {
         let mut g = create_graph();
         let first = g.add_node(34);
@@ -461,7 +629,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Can't add edge for not existing node with index 0")]
+    #[should_panic(expected = "Can't add edge for not existing node with index 1")]
     fn test_panics_on_create_edge_for_not_existing_node() {
         let mut g = create_graph();
         g.add_edge(0, 1, ());
@@ -478,14 +646,14 @@ mod tests {
     }
 
     #[test]
-    fn test_inexes_shifted_after_removing_middle_node() {
+    fn test_indexes_not_shifted_after_removing_middle_node() {
         let mut g = create_graph();
         let a_idx = g.add_node(13);
         let b_idx = g.add_node(43);
         let c_idx = g.add_node(89);
         g.remove_node(b_idx);
         assert_eq!(g.get_index_of(&13).unwrap(), a_idx);
-        assert_eq!(g.get_index_of(&89).unwrap(), c_idx - 1);
+        assert_eq!(g.get_index_of(&89).unwrap(), c_idx);
     }
 
     #[test]
@@ -566,5 +734,19 @@ mod tests {
     fn test_panics_on_getting_neighbors_for_not_existed_node() {
         let g = create_graph();
         g.neighbors(6);
+    }
+
+    fn create_closure() -> fn(u32) {
+        |x| println!("This is x: {}", x)
+    }
+
+    #[test]
+    fn test_can_hold_fn_as_edge_weight() {
+        let edges = vec![
+            (1, 2, create_closure()),
+            (2, 3, create_closure()),
+            (3, 4, create_closure()),
+        ];
+        MatrixGraph::<u32, fn(u32)>::from_edges(edges.into_iter());
     }
 }
