@@ -1,19 +1,20 @@
 use crate::types::GetNodeByIndex;
+use crate::types::MatrixGraphNode;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, VecDeque},
     hash::Hasher,
     mem,
 };
 
-use crate::types::MatrixGraphNode;
-
+/// Collection for storing nodes
+/// Works like indexed HashSet
 #[derive(Debug, PartialEq, Eq)]
 pub struct NodeStorage<N>
 where
     N: MatrixGraphNode,
 {
     nodes: Vec<Option<N>>,
-    hashes: HashMap<u64, ()>,
+    hashes: HashMap<u64, usize>,
     removed: VecDeque<usize>,
 }
 
@@ -40,16 +41,17 @@ where
             panic!("Nodes should be unique.");
         }
 
-        self.hashes.insert(hash, ());
-
         match self.removed.pop_back() {
             Some(idx) => {
                 let _ = mem::replace(&mut self.nodes[idx], Some(node));
+                self.hashes.insert(hash, idx);
                 idx
             }
             None => {
                 self.nodes.push(Some(node));
-                self.nodes.len() - 1
+                let idx = self.nodes.len() - 1;
+                self.hashes.insert(hash, idx);
+                idx
             }
         }
     }
@@ -85,16 +87,13 @@ where
         }
     }
 
-    pub fn contains(&self, node: &N) -> Option<usize> {
-        self.nodes
-            .iter()
-            .enumerate()
-            .filter(|(_i, n)| match n {
-                Some(n) => n == node,
-                None => false,
-            })
-            .map(|(i, _n)| i)
-            .next()
+    pub fn contains(&self, node: &N) -> bool {
+        self.get_index_of(node).is_some()
+    }
+
+    pub fn get_index_of(&self, node: &N) -> Option<usize> {
+        let hash = Self::calculate_hash(node);
+        self.hashes.get(&hash).cloned()
     }
 
     pub fn iter(&'_ self) -> NodeStorageIterator<'_, N> {

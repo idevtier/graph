@@ -161,10 +161,10 @@ where
 
     /// Checks if node exists in graph
     ///
-    /// Computes in **O(n)**
+    /// Computes in **O(1)** (average)
     #[inline]
     pub fn contains_node(&self, node: &N) -> bool {
-        self.nodes.contains(node).is_some()
+        self.nodes.contains(node)
     }
 
     /// Checks if edge between two nodes exists
@@ -180,10 +180,10 @@ where
 
     /// Returns index of node or None if not found
     ///
-    /// Computes in **O(n)**
+    /// Computes in **O(1)** (average)
     #[inline]
     pub fn get_index_of(&self, node: &N) -> Option<usize> {
-        self.nodes.contains(node)
+        self.nodes.get_index_of(node)
     }
 
     fn update_edge(&mut self, from: usize, to: usize, weight: T) -> Option<T> {
