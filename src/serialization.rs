@@ -97,7 +97,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{Adjacency, Gettable};
+    use crate::types::{Adjacency, GetEdgeByIndex};
 
     #[test]
     fn test_ser_to_tgf() {

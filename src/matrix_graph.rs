@@ -1,6 +1,6 @@
 use crate::node_storage::NodeStorage;
 use crate::traversable::BfsIterable;
-use crate::types::{Adjacency, AdjacencyMatrix, Gettable};
+use crate::types::{Adjacency, AdjacencyMatrix, GetEdgeByIndex, GetNodeByIndex};
 use crate::types::{IteratorHandle, MatrixGraphNode, Neighbors};
 use std::{cmp, fmt, mem, vec};
 
@@ -217,15 +217,20 @@ where
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-impl<N, T> Gettable<N, T> for MatrixGraph<N, T>
+impl<N, T> GetNodeByIndex<N> for MatrixGraph<N, T>
 where
     N: MatrixGraphNode,
 {
     #[inline]
     fn get_node_by_index(&self, node_idx: usize) -> Option<&N> {
-        self.nodes.get_checked(node_idx)
+        self.nodes.get_node_by_index(node_idx)
     }
+}
 
+impl<N, T> GetEdgeByIndex<T> for MatrixGraph<N, T>
+where
+    N: MatrixGraphNode,
+{
     #[inline]
     fn get_edge_by_index(&self, from: usize, to: usize) -> Option<&T> {
         if cmp::max(from, to) >= self.adjacency.len() {
@@ -266,7 +271,7 @@ where
                 return None;
             }
             self.index += 1;
-            let node = self.nodes.get_checked(self.index - 1);
+            let node = self.nodes.get_node_by_index(self.index - 1);
             if node.is_some() {
                 return node;
             }
@@ -300,7 +305,10 @@ where
             let node_exists = &self.adjacency[self.column];
             self.column += 1;
             if node_exists.is_some() {
-                return Some((self.column - 1, self.nodes.get_checked(self.column - 1)?));
+                return Some((
+                    self.column - 1,
+                    self.nodes.get_node_by_index(self.column - 1)?,
+                ));
             }
         }
     }
