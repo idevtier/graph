@@ -1,3 +1,4 @@
+use crate::types::GetNodeByIndex;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, VecDeque},
     hash::Hasher,
@@ -84,14 +85,6 @@ where
         }
     }
 
-    pub fn get_checked(&self, idx: usize) -> Option<&N> {
-        if idx > self.nodes.len() {
-            return None;
-        }
-
-        self.nodes[idx].as_ref()
-    }
-
     pub fn contains(&self, node: &N) -> Option<usize> {
         self.nodes
             .iter()
@@ -141,5 +134,18 @@ impl<'a, N> Iterator for NodeStorageIterator<'a, N> {
                 return Some(node);
             }
         }
+    }
+}
+
+impl<N> GetNodeByIndex<N> for NodeStorage<N>
+where
+    N: MatrixGraphNode,
+{
+    fn get_node_by_index(&self, node_idx: usize) -> Option<&N> {
+        if node_idx > self.nodes.len() {
+            return None;
+        }
+
+        self.nodes[node_idx].as_ref()
     }
 }
