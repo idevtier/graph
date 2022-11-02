@@ -57,6 +57,9 @@ where
     }
 
     pub fn remove(&mut self, idx: usize) -> Option<N> {
+        if idx >= self.len() {
+            return None;
+        }
         let node = mem::replace(&mut self.nodes[idx], None);
         if let Some(node) = node.as_ref() {
             let hash = Self::calculate_hash(node);
@@ -146,5 +149,95 @@ where
         }
 
         self.nodes[node_idx].as_ref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_node_storage() -> NodeStorage<u32> {
+        NodeStorage::<u32>::default()
+    }
+
+    #[test]
+    fn test_add_new_node() {
+        let mut ns = create_node_storage();
+        ns.add(54);
+        assert_eq!(ns.len(), 1);
+        assert!(ns.contains(&54));
+    }
+
+    #[test]
+    fn test_add_insert_to_removed_index() {
+        let mut ns = create_node_storage();
+        ns.add(34);
+        ns.add(46);
+        ns.add(90);
+
+        ns.remove(1);
+
+        ns.add(56);
+
+        assert_eq!(ns.get_index_of(&56).unwrap(), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "Nodes should be unique.")]
+    fn test_panics_on_adding_existing_node() {
+        let mut ns = create_node_storage();
+        ns.add(54);
+        ns.add(54);
+    }
+
+    #[test]
+    fn test_remove_returns_node() {
+        let mut ns = create_node_storage();
+        ns.add(54);
+        ns.remove(0);
+        assert_eq!(ns.len(), 0);
+    }
+
+    #[test]
+    fn test_remove_returns_none_if_not_exists() {
+        let mut ns = create_node_storage();
+        let node = ns.remove(123);
+        assert!(node.is_none());
+    }
+
+    #[test]
+    fn test_get_index_of_returns_correct_index() {
+        let mut ns = create_node_storage();
+        let nodes = vec![134, 235, 2342, 2123, 543];
+        for (idx, node) in nodes.iter().enumerate() {
+            ns.add(*node);
+            assert_eq!(ns.get_index_of(node).unwrap(), idx);
+        }
+    }
+
+    #[test]
+    fn test_iter_iterates_over_all_some_elements() {
+        let mut ns = create_node_storage();
+        let nodes = vec![123, 123123, 213533, 234, 1254];
+        for node in nodes.iter() {
+            ns.add(*node);
+        }
+        let actual = ns.iter().collect::<Vec<_>>();
+        let expected = nodes.iter().collect::<Vec<_>>();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_get_node_by_index() {
+        let mut ns = create_node_storage();
+        let nodes = vec![54, 78, 45, 123, 902];
+        for node in nodes.iter() {
+            ns.add(*node);
+        }
+
+        for (idx, node) in nodes.iter().enumerate() {
+            let actual = ns.get_node_by_index(idx).unwrap();
+            assert_eq!(node, actual);
+        }
     }
 }
