@@ -53,10 +53,15 @@ where
     }
 }
 
-/// Boundary for getting nodes and edges by index
+/// Boundary for getting nodes by index
 /// Can be changed to defalt Index after stable GAT
-pub trait Gettable<N, T> {
+pub trait GetNodeByIndex<N> {
     fn get_node_by_index(&self, node_idx: usize) -> Option<&N>;
+}
+
+/// Boundary for getting edges by index
+/// Can be changed to defalt Index after stable GAT
+pub trait GetEdgeByIndex<T> {
     fn get_edge_by_index(&self, from: usize, to: usize) -> Option<&T>;
 }
 
