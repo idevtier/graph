@@ -1,3 +1,5 @@
+extern crate anyhow;
+
 pub mod matrix_graph;
 pub mod node_storage;
 pub mod serialization;

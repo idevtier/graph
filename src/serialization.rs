@@ -1,22 +1,28 @@
 use crate::matrix_graph::MatrixGraph;
 use crate::types::{AdjacencyMatrix, MatrixGraphNode};
+use anyhow::Result;
 use core::str::FromStr;
 use std::error::Error;
 use std::fmt;
+use std::str::Lines;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TgfParseError {
+    WrongFileFormat,
     WrongNodeValue,
     WrongEdgeValue,
 }
+
+impl Error for TgfParseError {}
 
 impl fmt::Display for TgfParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::TgfParseError::*;
 
         let output = match self {
-            WrongNodeValue => "Wrong node value".to_string(),
-            WrongEdgeValue => "Wrong edge value".to_string(),
+            WrongNodeValue => "Wrong node value.".to_string(),
+            WrongEdgeValue => "Wrong edge value.".to_string(),
+            WrongFileFormat => "Wrong file format.".to_string(),
         };
 
         write!(f, "{}", output)?;
@@ -24,8 +30,6 @@ impl fmt::Display for TgfParseError {
         Ok(())
     }
 }
-
-impl Error for TgfParseError {}
 
 pub fn ser_tgf<N, T>(input: &AdjacencyMatrix<N, T>) -> String
 where
@@ -51,47 +55,99 @@ where
     output
 }
 
-pub fn de_tgf<N, T>(input: &str) -> Result<MatrixGraph<N, T>, TgfParseError>
+pub struct TgfParser<'a, N, T>
 where
     N: MatrixGraphNode + FromStr,
     T: FromStr,
 {
-    let mut g = MatrixGraph::<N, T>::default();
-    let (nodes, edges) = input.split_once('#').unwrap();
+    input: Lines<'a>,
+    result: MatrixGraph<N, T>,
+}
 
-    for node_str in nodes[..nodes.len() - 1].split('\n') {
-        let (_id, node) = node_str.split_once(' ').unwrap();
-        if let Ok(node) = node.parse() {
-            g.add_node(node);
-            continue;
-        };
-
-        return Err(TgfParseError::WrongNodeValue);
+impl<'a, N, T> TgfParser<'a, N, T>
+where
+    N: MatrixGraphNode + FromStr,
+    T: FromStr,
+{
+    pub fn new(input: &'a str) -> Self {
+        Self {
+            input: input.lines(),
+            result: MatrixGraph::<N, T>::default(),
+        }
     }
 
-    for edge_str in edges.lines().filter(|s| !s.is_empty()) {
-        let (from, to_weight) = edge_str
+    pub fn parse(mut self) -> Result<MatrixGraph<N, T>> {
+        self.parse_nodes()?;
+        self.parse_delimiter()?;
+        self.parse_edges()?;
+        Ok(self.result)
+    }
+
+    fn parse_nodes(&mut self) -> Result<()> {
+        loop {
+            let line = self.input.next().ok_or(TgfParseError::WrongNodeValue)?;
+            if line == "#" {
+                return Ok(());
+            }
+            let value = Self::parse_node(&line)?;
+            self.result.add_node(value);
+        }
+    }
+
+    fn parse_delimiter(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn parse_edges(&mut self) -> Result<()> {
+        loop {
+            match self.input.next() {
+                Some(line) => {
+                    let (from, to, value) = Self::parse_edge(&line)?;
+                    self.result.add_edge(from, to, value);
+                }
+                None => break Ok(()),
+            }
+        }
+    }
+
+    fn parse_node(line: &str) -> Result<N> {
+        let (_, node) = line.split_once(' ').ok_or(TgfParseError::WrongNodeValue)?;
+        let node = node
+            .parse::<N>()
+            .map_err(|_| TgfParseError::WrongNodeValue)?;
+        Ok(node)
+    }
+
+    fn parse_edge(line: &str) -> Result<(usize, usize, T)> {
+        let (from, to_and_value) = line.split_once(' ').ok_or(TgfParseError::WrongEdgeValue)?;
+        let (to, value) = to_and_value
             .split_once(' ')
             .ok_or(TgfParseError::WrongEdgeValue)?;
 
-        let (to, weight) = to_weight
-            .split_once(' ')
-            .ok_or(TgfParseError::WrongEdgeValue)?;
-
-        let weight = weight
-            .parse::<T>()
-            .map_err(|_| TgfParseError::WrongEdgeValue)?;
         let from = from
             .parse::<usize>()
-            .map_err(|_| TgfParseError::WrongEdgeValue)?;
+            .map_err(|_| TgfParseError::WrongNodeValue)?;
         let to = to
             .parse::<usize>()
-            .map_err(|_| TgfParseError::WrongEdgeValue)?;
+            .map_err(|_| TgfParseError::WrongNodeValue)?;
+        let value = value.parse().map_err(|_| TgfParseError::WrongNodeValue)?;
 
-        g.add_edge(from - 1, to - 1, weight);
+        Ok((from - 1, to - 1, value))
     }
+}
 
-    Ok(g)
+pub fn de_tgf<N, T>(input: &str) -> Result<MatrixGraph<N, T>>
+where
+    N: MatrixGraphNode + FromStr,
+    T: FromStr,
+{
+    TgfParser::new(input).parse()
+}
+
+fn _de_nodes_and_edges(input: &str) -> Result<(&str, &str)> {
+    input
+        .split_once(r"^#\n")
+        .ok_or(TgfParseError::WrongFileFormat.into())
 }
 
 #[cfg(test)]
@@ -174,19 +230,19 @@ mod tests {
     }
 
     #[test]
-    fn test_de_tgf_returns_error_on_wrang_node_value() {
+    fn test_de_tgf_returns_error_on_wrong_node_value() {
         let wrong_tgf = "1 Some bad value\r2 3\r#";
         let g = de_tgf::<u32, u32>(wrong_tgf);
-        assert_eq!(g.err().unwrap(), TgfParseError::WrongNodeValue);
+        assert!(g.err().is_some());
     }
 
     #[test]
-    fn test_de_tgf_returns_error_on_wrang_edge_value() {
+    fn test_de_tgf_returns_error_on_wrong_edge_value() {
         let wrong_tgf = "1 2
 2 3
 #
 Wrong value";
         let g = de_tgf::<u32, u32>(wrong_tgf);
-        assert_eq!(g.err().unwrap(), TgfParseError::WrongEdgeValue);
+        assert!(g.err().is_some());
     }
 }
